@@ -1,0 +1,154 @@
+version: "3.8"
+
+networks:
+  redis-local:
+    driver: bridge
+    name: redis-local
+    ipam:
+      driver: default
+      config:
+          # Network Addr : 192.168.0.0
+          # Total Hosts  : 256
+          # Usable Hosts : 254    
+          # Subnet       : 192.168.0.0/27
+          # Broadcast    : 192.168.0.255
+          # First Host   : 192.168.0.2
+          # Last Host    : 192.168.0.14
+        - subnet: 192.168.0.0/24
+
+services:
+  redis-dev-master: 
+    build:
+      context: .
+      dockerfile: ./redis.master.dockerfile
+    image: redis:master
+    container_name: redis-dev-master
+    networks:
+      redis-local:
+        ipv4_address: 192.168.0.7
+    volumes:
+      - redis-master-volume:/data
+    restart: unless-stopped    
+    command: "redis-server /config/redis.conf"
+
+  redis-dev-slave-1: 
+   build:
+     context: .
+     dockerfile: ./redis.slave.dockerfile
+   image: redis:slave
+   container_name: redis-dev-slave-1
+   depends_on:
+     - redis-dev-master
+   networks:
+     redis-local:
+       ipv4_address: 192.168.0.8
+   volumes:
+     - redis-slave1-volume:/data
+   restart: unless-stopped  
+   command: "redis-server /config/redis.conf"
+
+  redis-dev-slave-2: 
+    build:
+      context: .
+      dockerfile: ./redis.slave.dockerfile
+    image: redis:slave
+    container_name: redis-dev-slave-2
+    depends_on:
+      - redis-dev-master
+    networks:
+      redis-local:
+        ipv4_address: 192.168.0.9
+    volumes:
+      - redis-slave2-volume:/data
+    restart: unless-stopped   
+    command: "redis-server /config/redis.conf"
+   
+  redis-dev-sentinel-1: 
+    build:
+      context: .
+      dockerfile: ./redis.sentinel.dockerfile
+    image: redis:sentinel
+    container_name: redis-dev-sentinel-1
+    networks:
+      redis-local:
+        ipv4_address: 192.168.0.10
+    ports:
+      - 10021:26379
+    depends_on:
+      - redis-dev-master
+      - redis-dev-slave-1
+      - redis-dev-slave-2
+    volumes:
+      - redis-sentinel1-volume:/data
+    restart: unless-stopped    
+    command: "redis-sentinel /config/redis.conf"
+    
+  redis-dev-sentinel-2: 
+    build:
+      context: .
+      dockerfile: ./redis.sentinel.dockerfile
+    image: redis:sentinel
+    container_name: redis-dev-sentinel-2
+    networks:
+      redis-local:
+        ipv4_address: 192.168.0.11
+    ports:
+      - 10022:26379
+    depends_on:
+      - redis-dev-master
+      - redis-dev-slave-1
+      - redis-dev-slave-2
+    volumes:
+      - redis-sentinel2-volume:/data
+    restart: unless-stopped    
+    command: "redis-sentinel /config/redis.conf"
+    
+  redis-dev-sentinel-3: 
+    build:
+      context: .
+      dockerfile: ./redis.sentinel.dockerfile
+    image: redis:sentinel
+    container_name: redis-dev-sentinel-3
+    networks:
+      redis-local:
+        ipv4_address: 192.168.0.12
+    ports:
+      - 10023:26379
+    depends_on:
+      - redis-dev-master
+      - redis-dev-slave-1
+      - redis-dev-slave-2
+    volumes:
+      - redis-sentinel3-volume:/data
+    restart: unless-stopped    
+    command: "redis-sentinel /config/redis.conf"
+
+  # redis-dev-ui:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: redis-dev-ui
+  #   networks:
+  #     redis-local:
+  #       ipv4_address: 192.168.0.13
+  #   ports:
+  #   - 10024:8081
+  #   depends_on:
+  #     - redis-dev-master
+  #   environment:
+  #   - REDIS_HOSTS=local:redis-dev-master:6379
+  #   - SENTINELS='redis-dev-sentinel-3:26379:redismaster,redis-dev-sentinel-2:26379:redismaster,redis-dev-sentinel-1:26379:redismaster'
+  #   # - REDIS_PASSWORD=pass
+  #   restart: unless-stopped    
+
+volumes:
+  redis-master-volume:
+    name: redis-data
+  redis-slave1-volume:
+    name: redis-data
+  redis-slave2-volume:
+    name: redis-data
+  redis-sentinel1-volume:
+    name: redis-data
+  redis-sentinel2-volume:
+    name: redis-data
+  redis-sentinel3-volume:
+    name: redis-data
